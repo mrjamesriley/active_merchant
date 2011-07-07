@@ -1,3 +1,5 @@
+HI TEST
+
 # Active Merchant
 
 A Ruby library for dealing with credit cards and payment processors.
