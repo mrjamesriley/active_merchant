@@ -20,6 +20,7 @@ module ActiveMerchant
     # same order id
     class RealexGateway < Gateway
       URL = 'https://epage.payandshop.com/epage-remote.cgi'
+      REAL_VAULT_URL = 'https://epage.payandshop.com/epage-remote-plugins.cgi'
 
       CARD_MAPPING = {
         'master'            => 'MC',
@@ -41,6 +42,8 @@ module ActiveMerchant
       SUCCESS, DECLINED          = "Successful", "Declined"
       BANK_ERROR = REALEX_ERROR  = "Gateway is in maintenance. Please try again later."
       ERROR = CLIENT_DEACTIVATED = "Gateway Error"
+      MANDATORY_FIELDS_ERROR = "Mandatory field not present - cannot continue. Please check the Developer Documentation for mandatory fields"
+      EXPIRY_DATE_ERROR = "Expiry date invalid"
 
       def initialize(options = {})
         requires!(options, :login, :password)
@@ -54,6 +57,37 @@ module ActiveMerchant
 
         request = build_purchase_or_authorization_request(:purchase, money, credit_card, options)
         commit(request)
+      end
+
+      def credit(money, credit_card, options = {})
+        request = build_credit_request(money, credit_card, options)
+        puts 'credit request is: ' + request.inspect
+        commit(request)
+      end
+
+      def purchase_from_stored(money, payer_ref, card_ref, options = {})
+        requires!(options, :order_id)
+        request = build_purchase_with_stored(money, payer_ref, card_ref, options)
+        puts request
+        commit(request, url: REAL_VAULT_URL)
+      end
+
+      def create_payer(credit_card, options = {})
+        # recommended that you authorize before creating new payer 
+        # authorize(options[:amount], creditcard, options)
+
+        request = build_new_payer(credit_card, options)
+        puts request
+        commit(request, url: REAL_VAULT_URL)
+      end
+
+      def store(credit_card, options = {})
+        # recommended that you authorize before creating new payer 
+        # authorize(options[:amount], creditcard, options)
+
+        request = build_stored_card(credit_card, options)
+        puts request
+        commit(request, :url => REAL_VAULT_URL)
       end
 
       def authorize(money, creditcard, options = {})
@@ -73,19 +107,15 @@ module ActiveMerchant
         commit(request)
       end
 
-      def credit(money, authorization, options = {})
-        deprecated CREDIT_DEPRECATION_MESSAGE
-        refund(money, authorization, options)
-      end
-
       def void(authorization, options = {})
         request = build_void_request(authorization, options)
         commit(request)
       end
 
       private
-      def commit(request)
-        response = parse(ssl_post(URL, request))
+      def commit(request, options = {})
+        url = options[:url] || URL
+        response = parse(ssl_post(url, request))
 
         Response.new(response[:result] == "00", message_from(response), response,
           :test => response[:message] =~ /\[ test system \]/,
@@ -138,6 +168,67 @@ module ActiveMerchant
         xml.target!
       end
 
+      def build_purchase_with_stored(money, payer_ref, card_ref, options)
+        timestamp = new_timestamp
+        xml = Builder::XmlMarkup.new :indent => 2
+        xml.tag! 'request', 'timestamp' => timestamp, 'type' => 'receipt-in' do
+          add_merchant_details(xml, options)
+          xml.tag! 'orderid', sanitize_order_id(options[:order_id])
+          xml.tag! 'payment' do
+            xml.tag! 'cvn' do
+              xml.tag! 'number', 123
+            end
+          end
+          xml.tag! 'autosettle', 'flag' => 1
+          add_amount(xml, money, options)
+          xml.tag! 'payerref', payer_ref
+          xml.tag! 'paymentmethod', card_ref
+          add_signed_digest(xml, timestamp, @options[:login], sanitize_order_id(options[:order_id]), amount(money), (options[:currency] || currency(money)), payer_ref)
+        end
+      end
+
+      def build_new_payer(credit_card, options)
+        address = options[:billing_address] || options[:shipping_address] || options[:address] || {}
+
+        timestamp = new_timestamp
+
+        xml = Builder::XmlMarkup.new :indent => 2
+        xml.tag! 'request', 'timestamp' => timestamp, 'type' => 'payer-new' do
+          add_merchant_details(xml, options)
+          xml.tag! 'orderid', sanitize_order_id(options[:order_id])
+          xml.tag! 'firstname', options[:first_name]
+          xml.tag! 'surname', options[:last_name]
+          xml.tag! 'payer', :type => 'Business', :ref => options[:payer_ref]
+          xml.tag! 'address' do
+            xml.tag! 'line1', address[:line1]
+            xml.tag! 'line2', address[:line2]
+            xml.tag! 'line3', address[:line3]
+            xml.tag! 'city', address[:city]
+            xml.tag! 'county', address[:county]
+            xml.tag! 'postcode', address[:postcode]
+          end
+          
+          add_signed_digest(xml, timestamp, @options[:login], sanitize_order_id(options[:order_id]), nil, nil, options[:payer_ref])
+        end
+        xml.target!
+      end
+
+
+      def build_stored_card(credit_card, options)
+        address = options[:billing_address] || options[:shipping_address] || options[:address] || {}
+
+        timestamp = new_timestamp
+
+        xml = Builder::XmlMarkup.new :indent => 2
+        xml.tag! 'request', 'timestamp' => timestamp, 'type' => 'card-new' do
+          add_merchant_details(xml, options)
+          xml.tag! 'orderid', sanitize_order_id(options[:order_id])
+          add_card(xml, credit_card, options)
+          add_signed_digest(xml, timestamp, @options[:login], sanitize_order_id(options[:order_id]), nil, nil, options[:payer_ref], credit_card.name, credit_card.number)
+        end
+        xml.target!
+      end
+
       def build_capture_request(authorization, options)
         timestamp = new_timestamp
         xml = Builder::XmlMarkup.new :indent => 2
@@ -156,6 +247,21 @@ module ActiveMerchant
         xml.tag! 'request', 'timestamp' => timestamp, 'type' => 'rebate' do
           add_merchant_details(xml, options)
           add_transaction_identifiers(xml, authorization, options)
+          xml.tag! 'amount', amount(money), 'currency' => options[:currency] || currency(money)
+          xml.tag! 'refundhash', @options[:refund_hash] if @options[:refund_hash]
+          xml.tag! 'autosettle', 'flag' => 1
+          add_comments(xml, options)
+          add_signed_digest(xml, timestamp, @options[:login], sanitize_order_id(options[:order_id]), amount(money), (options[:currency] || currency(money)), nil)
+        end
+        xml.target!
+      end
+
+      def build_credit_request(money, credit_card, options)
+        timestamp = new_timestamp
+        xml = Builder::XmlMarkup.new :indent => 2
+        xml.tag! 'request', 'timestamp' => timestamp, 'type' => 'credit' do
+          add_merchant_details(xml, options)
+          add_card(xml, credit_card, options)
           xml.tag! 'amount', amount(money), 'currency' => options[:currency] || currency(money)
           xml.tag! 'refundhash', @options[:refund_hash] if @options[:refund_hash]
           xml.tag! 'autosettle', 'flag' => 1
@@ -229,16 +335,21 @@ module ActiveMerchant
         xml.tag! 'amount', amount(money), 'currency' => options[:currency] || currency(money)
       end
 
-      def add_card(xml, credit_card)
+      def add_card(xml, credit_card, options = {})
         xml.tag! 'card' do
           xml.tag! 'number', credit_card.number
           xml.tag! 'expdate', expiry_date(credit_card)
           xml.tag! 'chname', credit_card.name
           xml.tag! 'type', CARD_MAPPING[card_brand(credit_card).to_s]
           xml.tag! 'issueno', credit_card.issue_number
-          xml.tag! 'cvn' do
-            xml.tag! 'number', credit_card.verification_value
-            xml.tag! 'presind', (options['presind'] || (credit_card.verification_value? ? 1 : nil))
+          if options[:card_ref]
+            xml.tag! :ref, options[:card_ref]
+            xml.tag! :payerref, options[:payer_ref]
+          else
+            xml.tag! 'cvn' do
+              xml.tag! 'number', credit_card.verification_value
+              xml.tag! 'presind', (options['presind'] || (credit_card.verification_value? ? 1 : nil))
+            end
           end
         end
       end
@@ -257,6 +368,7 @@ module ActiveMerchant
       end
 
       def add_signed_digest(xml, *values)
+        puts values.inspect
         string = Digest::SHA1.hexdigest(values.join("."))
         xml.tag! 'sha1hash', Digest::SHA1.hexdigest([string, @options[:password]].join("."))
       end

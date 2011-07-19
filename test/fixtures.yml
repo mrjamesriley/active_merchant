@@ -297,76 +297,101 @@ quantum:
   password: Y
     
 realex:
-  login: X 
-  password: Y
+  login: tradeplayer 
+  password: 79lFgEqopI
     
 realex_with_account:
-  login: X
-  password: Y
-  account: testaccount
+  login: tradeplayer
+  password: 79lFgEqopI 
+  account: internettest
+
+realex_with_invalid_account:
+  login: tradeplayer
+  password: 79lFgEqopI 
+  account: chocolate
 
 # Realex doesn't provide public testing data
 # Fill in the card numbers with the Realex test
 # data.  
 realex_visa:
-  number: 
-  month: '6'
-  year: '2020'
+  number: 4263971921001307
+  month: '8'
+  year: '2014'
   verification_value: '123'
+  name: 'James Smiley'
+  type: 'visa'
 
 realex_visa_declined:
-  number: 
-  month: '6'
-  year: '2020'
+  number: 4000126842489127
+  month: '8'
+  year: '2014'
   verification_value: '123'
+  name: 'James Smiley'
+  type: 'visa'
 
 realex_visa_referral_a:
-  number: 
-  month: '6'
-  year: '2020'
+  number: 4000166842489115
+  month: '8'
+  year: '2014'
   verification_value: '123'
-  
-realex_visa_referral_b:
-  number: 
-  month: '6'
-  year: '2020'
-  verification_value: '123'
-  
-realex_visa_coms_error:
-  number: 
-  month: '6'
-  year: '2020'
-  verification_value: '123'
-  
-realex_mastercard:
-  number: 
-  month: '6'
-  year: '2020'
-  verification_value: '123'
+  name: 'James Smiley'
+  type: 'visa'  
 
-realex_mastercard_declined:
-  number: 
-  month: '6'
-  year: '2020'
+realex_visa_referral_b:
+  number: 4000136842489878
+  month: '8'
+  year: '2014'
   verification_value: '123'
+  name: 'James Smiley'
+  type: 'visa' 
+
+realex_visa_coms_error:
+  number: 4009837983422344
+  month: '8'
+  year: '2014'
+  verification_value: '123'
+  name: 'James Smiley'
+  type: 'visa' 
+
+realex_mastercard:
+  number: 5425232820001308
+  month: '8'
+  year: '2014'
+  verification_value: '123'
+  name: 'James Smiley'
+  type: 'master' 
+  
+realex_mastercard_declined:
+  number: 5114617896541284 
+  month: '8'
+  year: '2014'
+  verification_value: '123'
+  name: 'James Smiley'
+  type: 'master' 
 
 realex_mastercard_referral_a:
-  number: 
-  month: '6'
-  year: '2020'
+  number: 5121229875643585 
+  month: '8'
+  year: '2014'
   verification_value: '123'
+  name: 'James Smiley'
+  type: 'master' 
 
 realex_mastercard_referral_b:
-  number: 
-  month: '6'
-  year: '2020'
+  number: 5114634523652350
+  month: '8'
+  year: '2014'
   verification_value: '123'
+  name: 'James Smiley'
+  type: 'master' 
 
 realex_mastercard_coms_error:
-  number: 
-  month: '6'
-  year: '2020'
+  number: 5135024345352238
+  month: '8'
+  year: '2014'
   verification_value: '123'
+  name: 'James Smiley'
+  type: 'master' 
 
 sage:
   login: login

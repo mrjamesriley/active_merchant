@@ -1,4 +1,5 @@
 require 'time'
+
 require 'date'
 require 'active_merchant/billing/expiry_date'
 
@@ -38,8 +39,7 @@ module ActiveMerchant #:nodoc:
       include CreditCardMethods
       include Validateable
 
-      ## Attributes
-
+      # Attributes
       cattr_accessor :require_verification_value
       self.require_verification_value = true
 
