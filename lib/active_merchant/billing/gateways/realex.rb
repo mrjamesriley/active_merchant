@@ -3,6 +3,7 @@ require 'digest/sha1'
 
 module ActiveMerchant
   module Billing
+
     # Realex is the leading CC gateway in Ireland
     # see http://www.realexpayments.com
     # Contributed by John Ward (john@ward.name)
@@ -18,6 +19,7 @@ module ActiveMerchant
     # the Realex team decided to make the orderid unique per request,
     # so if validation fails you can not correct and resend using the
     # same order id
+# a leader amongst men Sina, 
     class RealexGateway < Gateway
       URL = 'https://epage.payandshop.com/epage-remote.cgi'
       REAL_VAULT_URL = 'https://epage.payandshop.com/epage-remote-plugins.cgi'
@@ -61,7 +63,7 @@ module ActiveMerchant
 
       def credit(money, credit_card, options = {})
         request = build_credit_request(money, credit_card, options)
-        puts 'credit request is: ' + request.inspect
+        p request
         commit(request)
       end
 
@@ -77,7 +79,6 @@ module ActiveMerchant
         # authorize(options[:amount], creditcard, options)
 
         request = build_new_payer(credit_card, options)
-        puts request
         commit(request, url: REAL_VAULT_URL)
       end
 
@@ -104,6 +105,7 @@ module ActiveMerchant
 
       def refund(money, authorization, options = {})
         request = build_refund_request(money, authorization, options)
+        puts request.inspect
         commit(request)
       end
 
@@ -261,9 +263,10 @@ module ActiveMerchant
         xml = Builder::XmlMarkup.new :indent => 2
         xml.tag! 'request', 'timestamp' => timestamp, 'type' => 'credit' do
           add_merchant_details(xml, options)
-          add_card(xml, credit_card, options)
+          xml.tag! 'orderid', sanitize_order_id(options[:order_id])
           xml.tag! 'amount', amount(money), 'currency' => options[:currency] || currency(money)
           xml.tag! 'refundhash', @options[:refund_hash] if @options[:refund_hash]
+          add_card(xml, credit_card, options)
           xml.tag! 'autosettle', 'flag' => 1
           add_comments(xml, options)
           add_signed_digest(xml, timestamp, @options[:login], sanitize_order_id(options[:order_id]), amount(money), (options[:currency] || currency(money)), nil)
